@@ -409,9 +409,24 @@ def process_video(video_path):
     if fps == 0:
         fps = 25
 
-    frames = []
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    all_predictions = []
+    output_path = tempfile.mktemp(suffix=".mp4")
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+    out = cv2.VideoWriter(
+        output_path,
+        fourcc,
+        fps,
+        (width, height)
+    )
+
+    all_predictions = set()
+
+    frame_skip = 3
+    frame_count = 0
 
     while True:
 
@@ -420,16 +435,21 @@ def process_video(video_path):
         if not ret:
             break
 
+        frame_count += 1
+
+        # Skip frames to reduce processing
+        if frame_count % frame_skip != 0:
+            continue
+
         results = yolo_model(
             frame,
-            imgsz=320
+            imgsz=320,
+            verbose=False
         )
 
         detected_frame = results[0].plot()
 
         boxes = results[0].boxes.xyxy.cpu().numpy()
-
-        frame_predictions = []
 
         for box in boxes:
 
@@ -445,35 +465,15 @@ def process_video(video_path):
                 resnet_model
             )
 
-            frame_predictions.append(
+            all_predictions.add(
                 f"{breed} ({conf:.2f})"
             )
 
-        if frame_predictions:
-
-            all_predictions.extend(frame_predictions)
-
-        detected_frame = cv2.cvtColor(
-            detected_frame,
-            cv2.COLOR_BGR2RGB
-        )
-
-        frames.append(detected_frame)
+        out.write(detected_frame)
 
     cap.release()
 
-    output_path = tempfile.mktemp(suffix=".mp4")
+    out.release()
 
-    clip = ImageSequenceClip(
-        frames,
-        fps=fps
-    )
+    return output_path, list(all_predictions)
 
-    clip.write_videofile(
-        output_path,
-        codec="libx264",
-        audio=False,
-        logger=None
-    )
-
-    return output_path, list(set(all_predictions))
