@@ -1,0 +1,193 @@
+from ultralytics import YOLO
+from PIL import Image
+import numpy as np
+import torch
+from torchvision import transforms, datasets
+import cv2
+import tempfile
+import timm
+from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
+# =========================================
+# DEVICE
+# =========================================
+device = torch.device(
+    "cuda" if torch.cuda.is_available() else "cpu"
+)
+
+# =========================================
+# YOLO MODEL
+# =========================================
+yolo_model = YOLO("models/best.pt")
+
+# =========================================
+# BREED CLASSES
+# =========================================
+dataset = datasets.ImageFolder(
+    r"D:\Academic Projects\Cattle And Breed Detection Model\ResNet\resnet_croped_train_dataset"
+)
+
+breed_classes = dataset.classes
+
+num_classes = 67 
+
+# =========================================
+# RESNET MODEL
+# =========================================
+resnet_model = timm.create_model(
+    "resnetv2_50",
+    pretrained=False,
+    num_classes=num_classes
+)
+
+resnet_model.load_state_dict(
+    torch.load(
+        "models/resnetv2_breed_classifier.pth",
+        map_location=device
+    )
+)
+
+resnet_model.to(device)
+
+resnet_model.eval()
+
+# =========================================
+# TRANSFORM
+# =========================================
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
+
+# =========================================
+# BREED CLASSIFICATION
+# =========================================
+def classify_breed(crop_img):
+
+    crop_pil = Image.fromarray(crop_img)
+
+    input_tensor = transform(crop_pil)
+
+    input_tensor = input_tensor.unsqueeze(0).to(device)
+
+    with torch.no_grad():
+
+        outputs = resnet_model(input_tensor)
+
+        probabilities = torch.softmax(outputs, dim=1)
+
+        confidence, predicted = torch.max(
+            probabilities,
+            1
+        )
+
+    breed_name = breed_classes[predicted.item()]
+
+    return breed_name, float(confidence.item())
+
+# =========================================
+# IMAGE PREDICTION
+# =========================================
+def detect_and_classify_image(image):
+
+    image_np = np.array(image)
+
+    # YOLO detection
+    results = yolo_model(image_np)
+
+    # YOLO plotted image
+    detected_img = results[0].plot()
+
+    predictions = []
+
+    boxes = results[0].boxes.xyxy.cpu().numpy()
+
+    for box in boxes:
+
+        x1, y1, x2, y2 = map(int, box)
+
+        crop = image_np[y1:y2, x1:x2]
+
+        breed_name, confidence = classify_breed(crop)
+
+        predictions.append({
+            "breed": breed_name,
+            "confidence": confidence
+        })
+
+    return detected_img, predictions
+
+# =========================================
+# VIDEO PROCESSING
+# =========================================
+def process_video(video_path):
+
+    cap = cv2.VideoCapture(video_path)
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    if fps == 0:
+        fps = 25
+
+    frames = []
+
+    all_predictions = []
+
+    while True:
+
+        ret, frame = cap.read()
+
+        if not ret:
+            break
+
+        # YOLO Detection
+        results = yolo_model(frame)
+
+        detected_frame = results[0].plot()
+
+        boxes = results[0].boxes.xyxy.cpu().numpy()
+
+        frame_predictions = []
+
+        for box in boxes:
+
+            x1, y1, x2, y2 = map(int, box)
+
+            crop = frame[y1:y2, x1:x2]
+
+            if crop.size == 0:
+                continue
+
+            breed_name, confidence = classify_breed(crop)
+
+            frame_predictions.append(
+                f"{breed_name} ({confidence:.2f})"
+            )
+
+        if frame_predictions:
+
+            all_predictions.extend(frame_predictions)
+
+        # Convert BGR to RGB
+        detected_frame = cv2.cvtColor(
+            detected_frame,
+            cv2.COLOR_BGR2RGB
+        )
+
+        frames.append(detected_frame)
+
+    cap.release()
+
+    # =========================================
+    # CREATE VIDEO USING MOVIEPY
+    # =========================================
+    output_path = tempfile.mktemp(suffix=".mp4")
+
+    clip = ImageSequenceClip(frames, fps=fps)
+
+    clip.write_videofile(
+        output_path,
+        codec="libx264",
+        audio=False
+    )
+
+    return output_path, list(set(all_predictions))

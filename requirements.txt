@@ -1,0 +1,12 @@
+streamlit
+streamlit-option-menu
+mysql-connector-python
+python-dotenv
+bcrypt
+groq
+pillow
+torch
+torchvision
+ultralytics
+opencv-python-headless
+numpy
