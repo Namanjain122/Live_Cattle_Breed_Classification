@@ -12,10 +12,10 @@ from Bot.ChatBot import ask_doctor
 # =========================================
 # PAGE CONFIG
 # =========================================
-st.set_page_config(
-    page_title="Cattle & Breed Detection",
-    layout="wide"
-)
+# st.set_page_config(
+#     page_title="Cattle & Breed Detection",
+#     layout="wide"
+# )
 
 # =========================================
 # LOGIN CHECK
