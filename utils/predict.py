@@ -395,7 +395,7 @@ def detect_and_classify_image(image):
 
 # =========================================
 # VIDEO PROCESSING
-# =========================================
+# ========================================
 def process_video(video_path):
 
     yolo_model = load_yolo_model()
@@ -412,17 +412,17 @@ def process_video(video_path):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    output_path = tempfile.mktemp(suffix=".avi")
-    
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    
+    # Final playable mp4 output
+    output_path = tempfile.mktemp(suffix=".mp4")
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
     out = cv2.VideoWriter(
         output_path,
         fourcc,
         fps,
         (width, height)
     )
-
 
     all_predictions = set()
 
@@ -438,7 +438,7 @@ def process_video(video_path):
 
         frame_count += 1
 
-        # Skip frames to reduce processing
+        # Skip frames for optimization
         if frame_count % frame_skip != 0:
             continue
 
