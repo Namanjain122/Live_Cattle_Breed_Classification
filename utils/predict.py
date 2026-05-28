@@ -413,9 +413,9 @@ def process_video(video_path):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     # Final playable mp4 output
-    output_path = tempfile.mktemp(suffix=".mp4")
+    output_path = tempfile.mktemp(suffix=".avi")
 
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
 
     out = cv2.VideoWriter(
         output_path,
