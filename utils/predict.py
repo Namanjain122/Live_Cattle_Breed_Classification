@@ -190,104 +190,290 @@
 #     return output_path, list(set(all_predictions))
 
 import os
+
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["YOLO_CONFIG_DIR"] = "/tmp"
+
 import streamlit as st
 import torch
 import timm
 import cv2
 import numpy as np
 import tempfile
+
 from PIL import Image
 from torchvision import transforms
 from ultralytics import YOLO
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 # =========================================
-# CONFIGURATION & CLASSES
+# DEVICE
 # =========================================
-BREED_CLASSES = ['Buffalo_Chhattisgarhi', 'Buffalo_Jaffarabadi', 'Buffalo_banni', 'Buffalo_bargur', 'Buffalo_bhadwari', 'Buffalo_chilika', 'Buffalo_gojri', 'Buffalo_kalahandi', 'Buffalo_luit', 'Buffalo_marathwada', 'Buffalo_mehsana', 'Buffalo_murrah', 'Buffalo_nagpuri', 'Buffalo_nili-ravi', 'Buffalo_pandharpuri', 'Buffalo_surti', 'Buffalo_toda', 'Cow_Amritmahal', 'Cow_Ayrshire', 'Cow_Bargur', 'Cow_Dangi', 'Cow_Deoni', 'Cow_Gir', 'Cow_Hallikar', 'Cow_Hariana', 'Cow_Himachali Pahari', 'Cow_Kangayam', 'Cow_Kankrej', 'Cow_Kenkatha', 'Cow_Khariar', 'Cow_Khillari', 'Cow_Konkan Kapila', 'Cow_Kosali', 'Cow_Krishna_Valley', 'Cow_Ladakhi', 'Cow_Lakhimi', 'Cow_Malnad_gidda', 'Cow_Mewati', 'Cow_Nari', 'Cow_Nimari', 'Cow_Ongole', 'Cow_Poda Thirupu', 'Cow_Pulikulam', 'Cow_Punganur', 'Cow_Purnea', 'Cow_Rathi', 'Cow_Red kandhari', 'Cow_Red_Sindhi', 'Cow_Sahiwal', 'Cow_Shweta Kapila', 'Cow_Tharparkar', 'Cow_Umblachery', 'Cow_Vechur', 'Cow_bachaur', 'Cow_badri', 'Cow_bhelai', 'Cow_dagri', 'Cow_gangatari', 'Cow_gaolao', 'Cow_ghumsari', 'Cow_kherigarh', 'Cow_malvi', 'Cow_motu', 'Cow_nagori', 'Cow_ponwar', 'Cow_siri', 'Cow_thutho']
 DEVICE = torch.device("cpu")
 
-class ModelHandler:
-    @staticmethod
-    @st.cache_resource
-    def load_models():
-        yolo = YOLO("models/best.pt")
-        resnet = timm.create_model("resnetv2_50", pretrained=False, num_classes=len(BREED_CLASSES))
-        resnet.load_state_dict(torch.load("models/resnetv2_breed_classifier.pth", map_location=DEVICE))
-        return yolo, resnet.to(DEVICE).eval()
-
-    @staticmethod
-    def transform_image(img):
-        transform = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
-        return transform(Image.fromarray(img)).unsqueeze(0).to(DEVICE)
+# =========================================
+# BREED CLASSES
+# =========================================
+BREED_CLASSES = [
+    'Buffalo_Chhattisgarhi',
+    'Buffalo_Jaffarabadi',
+    'Buffalo_banni',
+    'Buffalo_bargur',
+    'Buffalo_bhadwari',
+    'Buffalo_chilika',
+    'Buffalo_gojri',
+    'Buffalo_kalahandi',
+    'Buffalo_luit',
+    'Buffalo_marathwada',
+    'Buffalo_mehsana',
+    'Buffalo_murrah',
+    'Buffalo_nagpuri',
+    'Buffalo_nili-ravi',
+    'Buffalo_pandharpuri',
+    'Buffalo_surti',
+    'Buffalo_toda',
+    'Cow_Amritmahal',
+    'Cow_Ayrshire',
+    'Cow_Bargur',
+    'Cow_Dangi',
+    'Cow_Deoni',
+    'Cow_Gir',
+    'Cow_Hallikar',
+    'Cow_Hariana',
+    'Cow_Himachali Pahari',
+    'Cow_Kangayam',
+    'Cow_Kankrej',
+    'Cow_Kenkatha',
+    'Cow_Khariar',
+    'Cow_Khillari',
+    'Cow_Konkan Kapila',
+    'Cow_Kosali',
+    'Cow_Krishna_Valley',
+    'Cow_Ladakhi',
+    'Cow_Lakhimi',
+    'Cow_Malnad_gidda',
+    'Cow_Mewati',
+    'Cow_Nari',
+    'Cow_Nimari',
+    'Cow_Ongole',
+    'Cow_Poda Thirupu',
+    'Cow_Pulikulam',
+    'Cow_Punganur',
+    'Cow_Purnea',
+    'Cow_Rathi',
+    'Cow_Red kandhari',
+    'Cow_Red_Sindhi',
+    'Cow_Sahiwal',
+    'Cow_Shweta Kapila',
+    'Cow_Tharparkar',
+    'Cow_Umblachery',
+    'Cow_Vechur',
+    'Cow_bachaur',
+    'Cow_badri',
+    'Cow_bhelai',
+    'Cow_dagri',
+    'Cow_gangatari',
+    'Cow_gaolao',
+    'Cow_ghumsari',
+    'Cow_kherigarh',
+    'Cow_malvi',
+    'Cow_motu',
+    'Cow_nagori',
+    'Cow_ponwar',
+    'Cow_siri',
+    'Cow_thutho'
+]
 
 # =========================================
-# PROCESSING LOGIC
+# IMAGE TRANSFORM
 # =========================================
-def classify_crop(crop_img, resnet):
-    input_tensor = ModelHandler.transform_image(crop_img)
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
+
+# =========================================
+# LOAD YOLO MODEL
+# =========================================
+@st.cache_resource
+def load_yolo_model():
+
+    model = YOLO("models/best.pt")
+
+    return model
+
+# =========================================
+# LOAD RESNET MODEL
+# =========================================
+@st.cache_resource
+def load_resnet_model():
+
+    model = timm.create_model(
+        "resnetv2_50",
+        pretrained=False,
+        num_classes=len(BREED_CLASSES)
+    )
+
+    model.load_state_dict(
+        torch.load(
+            "models/resnetv2_breed_classifier.pth",
+            map_location=DEVICE
+        )
+    )
+
+    model.to(DEVICE)
+
+    model.eval()
+
+    return model
+
+# =========================================
+# CLASSIFY CROPPED IMAGE
+# =========================================
+def classify_crop(crop_img, resnet_model):
+
+    crop_pil = Image.fromarray(crop_img)
+
+    input_tensor = transform(crop_pil)
+
+    input_tensor = input_tensor.unsqueeze(0).to(DEVICE)
+
     with torch.no_grad():
-        outputs = resnet(input_tensor)
+
+        outputs = resnet_model(input_tensor)
+
         probs = torch.softmax(outputs, dim=1)
+
         conf, pred = torch.max(probs, 1)
-    return BREED_CLASSES[pred.item()], float(conf.item())
 
-def process_media(media_input, is_video=False):
-    yolo, resnet = ModelHandler.load_models()
-    
-    if not is_video:
-        # Image Logic
-        img = np.array(media_input)
-        results = yolo(img, imgsz=320)
-        detected_img = results[0].plot()
-        preds = []
-        for box in results[0].boxes.xyxy.cpu().numpy():
+    breed = BREED_CLASSES[pred.item()]
+
+    return breed, float(conf.item())
+
+# =========================================
+# IMAGE PREDICTION
+# =========================================
+def detect_and_classify_image(image):
+
+    yolo_model = load_yolo_model()
+
+    resnet_model = load_resnet_model()
+
+    image_np = np.array(image)
+
+    results = yolo_model(
+        image_np,
+        imgsz=320
+    )
+
+    detected_img = results[0].plot()
+
+    predictions = []
+
+    boxes = results[0].boxes.xyxy.cpu().numpy()
+
+    for box in boxes:
+
+        x1, y1, x2, y2 = map(int, box)
+
+        crop = image_np[y1:y2, x1:x2]
+
+        if crop.size == 0:
+            continue
+
+        breed, conf = classify_crop(
+            crop,
+            resnet_model
+        )
+
+        predictions.append({
+            "breed": breed,
+            "confidence": conf
+        })
+
+    return detected_img, predictions
+
+# =========================================
+# VIDEO PROCESSING
+# =========================================
+def process_video(video_path):
+
+    yolo_model = load_yolo_model()
+
+    resnet_model = load_resnet_model()
+
+    cap = cv2.VideoCapture(video_path)
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    if fps == 0:
+        fps = 25
+
+    frames = []
+
+    all_predictions = []
+
+    while True:
+
+        ret, frame = cap.read()
+
+        if not ret:
+            break
+
+        results = yolo_model(
+            frame,
+            imgsz=320
+        )
+
+        detected_frame = results[0].plot()
+
+        boxes = results[0].boxes.xyxy.cpu().numpy()
+
+        frame_predictions = []
+
+        for box in boxes:
+
             x1, y1, x2, y2 = map(int, box)
-            crop = img[y1:y2, x1:x2]
-            if crop.size > 0:
-                breed, conf = classify_crop(crop, resnet)
-                preds.append(f"{breed} ({conf:.2f})")
-        return detected_img, preds
-    
-    else:
-        # Video Logic
-        cap = cv2.VideoCapture(media_input)
-        fps = cap.get(cv2.CAP_PROP_FPS) or 25
-        frames, all_preds = [], set()
-        
-        while True:
-            ret, frame = cap.read()
-            if not ret: break
-            results = yolo(frame, imgsz=320)
-            det_frame = cv2.cvtColor(results[0].plot(), cv2.COLOR_BGR2RGB)
-            frames.append(det_frame)
-            for box in results[0].boxes.xyxy.cpu().numpy():
-                x1, y1, x2, y2 = map(int, box)
-                crop = frame[y1:y2, x1:x2]
-                if crop.size > 0:
-                    b, c = classify_crop(crop, resnet)
-                    all_preds.add(f"{b} ({c:.2f})")
-        
-        cap.release()
-        out_path = tempfile.mktemp(suffix=".mp4")
-        ImageSequenceClip(frames, fps=fps).write_videofile(out_path, codec="libx264", audio=False, logger=None)
-        return out_path, list(all_preds)
 
-# =========================================
-# STREAMLIT UI
-# =========================================
-st.title("Livestock Breed Classifier")
-uploaded_file = st.file_uploader("Upload Image/Video", type=["jpg", "png", "mp4"])
+            crop = frame[y1:y2, x1:x2]
 
-if uploaded_file:
-    if uploaded_file.type.startswith("image"):
-        img = Image.open(uploaded_file)
-        res_img, preds = process_media(img)
-        st.image(res_img)
-        st.write("Detected Breeds:", preds)
-    else:
-        with open("temp_vid.mp4", "wb") as f: f.write(uploaded_file.read())
-        path, preds = process_media("temp_vid.mp4", is_video=True)
-        st.video(path)
-        st.write("Identified Breeds in Video:", preds)
+            if crop.size == 0:
+                continue
+
+            breed, conf = classify_crop(
+                crop,
+                resnet_model
+            )
+
+            frame_predictions.append(
+                f"{breed} ({conf:.2f})"
+            )
+
+        if frame_predictions:
+
+            all_predictions.extend(frame_predictions)
+
+        detected_frame = cv2.cvtColor(
+            detected_frame,
+            cv2.COLOR_BGR2RGB
+        )
+
+        frames.append(detected_frame)
+
+    cap.release()
+
+    output_path = tempfile.mktemp(suffix=".mp4")
+
+    clip = ImageSequenceClip(
+        frames,
+        fps=fps
+    )
+
+    clip.write_videofile(
+        output_path,
+        codec="libx264",
+        audio=False,
+        logger=None
+    )
+
+    return output_path, list(set(all_predictions))
