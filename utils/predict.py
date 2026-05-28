@@ -395,8 +395,11 @@ def detect_and_classify_image(image):
 
 # =========================================
 # VIDEO PROCESSING
-# ========================================
+# =========================================
 def process_video(video_path):
+
+    import os
+    import subprocess
 
     yolo_model = load_yolo_model()
 
@@ -412,13 +415,13 @@ def process_video(video_path):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    # Final playable mp4 output
-    output_path = tempfile.mktemp(suffix=".avi")
+    # Temporary raw avi
+    temp_avi = tempfile.mktemp(suffix=".avi")
 
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
 
     out = cv2.VideoWriter(
-        output_path,
+        temp_avi,
         fourcc,
         fps,
         (width, height)
@@ -438,7 +441,6 @@ def process_video(video_path):
 
         frame_count += 1
 
-        # Skip frames for optimization
         if frame_count % frame_skip != 0:
             continue
 
@@ -476,5 +478,33 @@ def process_video(video_path):
 
     out.release()
 
-    return output_path, list(all_predictions)
+    # =========================================
+    # CONVERT AVI TO PLAYABLE MP4
+    # =========================================
+    final_mp4 = tempfile.mktemp(suffix=".mp4")
+
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        temp_avi,
+        "-vcodec",
+        "libx264",
+        "-acodec",
+        "aac",
+        final_mp4
+    ]
+
+    subprocess.run(
+        command,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+
+    # Remove temporary avi
+    if os.path.exists(temp_avi):
+        os.remove(temp_avi)
+
+    return final_mp4, list(all_predictions)
+
 
