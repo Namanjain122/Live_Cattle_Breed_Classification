@@ -22,11 +22,8 @@ yolo_model = YOLO("models/best.pt")
 # =========================================
 # BREED CLASSES
 # =========================================
-dataset = datasets.ImageFolder(
-    r"D:\Academic Projects\Cattle And Breed Detection Model\ResNet\resnet_croped_train_dataset"
-)
 
-breed_classes = dataset.classes
+breed_classes = ['Buffalo_Chhattisgarhi', 'Buffalo_Jaffarabadi', 'Buffalo_banni', 'Buffalo_bargur', 'Buffalo_bhadwari', 'Buffalo_chilika', 'Buffalo_gojri', 'Buffalo_kalahandi', 'Buffalo_luit', 'Buffalo_marathwada', 'Buffalo_mehsana', 'Buffalo_murrah', 'Buffalo_nagpuri', 'Buffalo_nili-ravi', 'Buffalo_pandharpuri', 'Buffalo_surti', 'Buffalo_toda', 'Cow_Amritmahal', 'Cow_Ayrshire', 'Cow_Bargur', 'Cow_Dangi', 'Cow_Deoni', 'Cow_Gir', 'Cow_Hallikar', 'Cow_Hariana', 'Cow_Himachali Pahari', 'Cow_Kangayam', 'Cow_Kankrej', 'Cow_Kenkatha', 'Cow_Khariar', 'Cow_Khillari', 'Cow_Konkan Kapila', 'Cow_Kosali', 'Cow_Krishna_Valley', 'Cow_Ladakhi', 'Cow_Lakhimi', 'Cow_Malnad_gidda', 'Cow_Mewati', 'Cow_Nari', 'Cow_Nimari', 'Cow_Ongole', 'Cow_Poda Thirupu', 'Cow_Pulikulam', 'Cow_Punganur', 'Cow_Purnea', 'Cow_Rathi', 'Cow_Red kandhari', 'Cow_Red_Sindhi', 'Cow_Sahiwal', 'Cow_Shweta Kapila', 'Cow_Tharparkar', 'Cow_Umblachery', 'Cow_Vechur', 'Cow_bachaur', 'Cow_badri', 'Cow_bhelai', 'Cow_dagri', 'Cow_gangatari', 'Cow_gaolao', 'Cow_ghumsari', 'Cow_kherigarh', 'Cow_malvi', 'Cow_motu', 'Cow_nagori', 'Cow_ponwar', 'Cow_siri', 'Cow_thutho', 'resnet_croped_train_dataset']
 
 num_classes = 67 
 
