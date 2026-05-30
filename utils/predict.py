@@ -204,7 +204,6 @@ import tempfile
 from PIL import Image
 from torchvision import transforms
 from ultralytics import YOLO
-from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 # =========================================
 # DEVICE
