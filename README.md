@@ -1,4 +1,4 @@
-[[# Live_Cattle_Breed_Classification]](https://github.com/user-attachments/assets/77a93721-c866-4096-9dd6-ce0f9fca8cc5
+https://github.com/user-attachments/assets/77a93721-c866-4096-9dd6-ce0f9fca8cc5
 # Cattle Breed Detection & Classification System 🐄🤖
 
 An AI-powered **2-Tier Cattle Intelligence System** designed to detect cattle types (**Cow vs Buffalo**) and classify their breeds using advanced deep learning models.
